@@ -1,16 +1,23 @@
 package com.mahmoud.service;
 
 import com.mahmoud.entity.Patient;
+import com.mahmoud.exception.CustomServiceException;
 import com.mahmoud.mapper.PatientProfileMapper;
+import com.mahmoud.mapper.PatientRegisterScreenOneDto;
 import com.mahmoud.repository.PatientRepository;
 import com.mahmoud.request.CreatePatientProfileRequest;
 import com.mahmoud.response.CreatePatientResponse;
+import com.mahmoud.response.SuccessResponse;
+import com.mahmoud.utils.ResponseIntegerKeys;
+import com.mahmoud.utils.ResponseStringKeys;
 import com.mahmoud.utils.SharedUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
+import javax.persistence.EntityNotFoundException;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @Service
@@ -21,7 +28,7 @@ public class PatientServiceImp implements PatientService {
         @Autowired
     PatientProfileMapper patientProfileMapper;
 @Override
-    public ResponseEntity<CreatePatientResponse> insert(
+    public ResponseEntity<CreatePatientResponse> create(
             CreatePatientProfileRequest createPatientProfileRequest
     ){
 
@@ -51,5 +58,43 @@ public class PatientServiceImp implements PatientService {
         return new ResponseEntity<>(CreatePatientResponse.builder().message("Data Saved").messageCode(201)
                 .patientId(patientProfile.getId()).build(), HttpStatus.CREATED);
     }
+    @Override
+    public Patient getPatientById(Long id) {
+        try {
+            Optional<Patient> optional = patientRepository.findById(id);
 
+            if (optional.isPresent()) {
+                return optional.get();
+            }
+
+            throw new EntityNotFoundException("Patient with id: " + id + " wasn't found");
+        } catch (NoSuchElementException e) {
+            throw new EntityNotFoundException("Patient with id: " + id + " wasn't found");
+        }
+    }
+
+    @Override
+    public SuccessResponse<Patient> delete(Long id) {
+        return patientRepository.findById(id)
+                .map(patient -> {
+                    patientRepository.delete(patient);
+                    return new SuccessResponse<Patient>(ResponseStringKeys.DELETED, ResponseIntegerKeys.OK);
+                }).orElseGet(() -> new SuccessResponse<>(ResponseStringKeys.NOT_FOUND, ResponseIntegerKeys.NOT_FOUND));
+    }
+
+    @Override
+    public SuccessResponse<Patient> update(Long id, PatientRegisterScreenOneDto dto){
+        Patient entity = patientRepository.findById(id)
+                .orElseThrow(() -> new CustomServiceException(ResponseStringKeys.NOT_FOUND, ResponseIntegerKeys.NOT_FOUND));
+        entity.setFirstName(dto.getFirstName());
+        entity.setLastName(dto.getLastName());
+        entity.setMiddleName(dto.getMiddleName());
+        entity.setHomePhone(dto.getHomePhone());
+        entity.setMobilePhone(dto.getMobilePhone());
+        entity.setGender(dto.getGender());
+        entity.setEmail(dto.getEmail());
+        entity.setDateOfBirth(dto.getDateOfBirth());
+        return new SuccessResponse<Patient>(patientRepository.save(entity));
+
+    }
 }
